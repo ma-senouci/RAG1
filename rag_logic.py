@@ -2,6 +2,7 @@
 import sys
 import logging
 from pypdf import PdfReader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Configure logging
 PROJECT_LOGGER_NAME = "RAG1"
@@ -31,6 +32,12 @@ class RAGManager:
         self.index_folder = index_folder
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        self.splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+            length_function=len,
+            is_separator_regex=False,
+        )
         self._model = None  # Lazy loaded
         self.all_chunks = []
         
@@ -77,3 +84,9 @@ class RAGManager:
             logger.error(f"Failed to extract text from {file_path}: {str(e)}")
             
         return text
+
+    def chunk_text(self, text):
+        """
+        Splits text into semantically preserved chunks.
+        """
+        return self.splitter.split_text(text)
