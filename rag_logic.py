@@ -3,6 +3,8 @@ import sys
 import logging
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from sentence_transformers import SentenceTransformer
+import numpy as np
 
 # Configure logging
 PROJECT_LOGGER_NAME = "RAG1"
@@ -42,6 +44,26 @@ class RAGManager:
         self.all_chunks = []
         
         logger.info(f"RAGManager initialized with chunk_size={chunk_size}, chunk_overlap={chunk_overlap}")
+
+    @property
+    def model(self):
+        """Lazy loader for SentenceTransformer to save memory/startup time."""
+        if self._model is None:
+            if os.environ.get("RAG_MOCK_MODEL") == "true":
+                logger.info("RAG_MOCK_MODEL=true detected. Using dummy mock for SentenceTransformer.")
+                from unittest.mock import MagicMock
+                mock = MagicMock()
+                # Simulate the encode method returning random vectors
+                def mock_encode(sentences, **kwargs):
+                    import numpy as np
+                    count = len(sentences) if isinstance(sentences, list) else 1
+                    return np.random.rand(count, 384).astype('float32')
+                mock.encode.side_effect = mock_encode
+                self._model = mock
+            else:
+                logger.info("Loading SentenceTransformer model...")
+                self._model = SentenceTransformer('all-MiniLM-L6-v2')
+        return self._model
 
     def list_source_files(self, folder_path="me"):
         """
@@ -90,3 +112,37 @@ class RAGManager:
         Splits text into semantically preserved chunks.
         """
         return self.splitter.split_text(text)
+
+    def generate_embeddings(self, chunks, batch_size=32):
+        """
+        Generates vector embeddings for a list of text chunks using batching to manage memory.
+        """
+        if not chunks:
+            return np.array([], dtype='float32')
+        
+        logger.info(f"Generating embeddings for {len(chunks)} chunks (batch_size={batch_size})")
+        embeddings = self.model.encode(chunks, batch_size=batch_size, show_progress_bar=False)
+        return embeddings
+
+    def get_query_embedding(self, query: str) -> np.ndarray:
+        """
+        Converts a user query string into a vector embedding.
+        Ensures consistency with ingestion by using the same model and 384 dimensions.
+        """
+        if not query or not query.strip():
+            raise ValueError("Query cannot be empty")
+            
+        logger.info(f"Generating embedding for query: '{query[:50]}...'")
+        embedding = self.model.encode([query])
+        
+        # Ensure embeddings is a float32 numpy array
+        if not isinstance(embedding, np.ndarray):
+            embedding = np.array(embedding)
+        if embedding.dtype != 'float32':
+            embedding = embedding.astype('float32')
+        
+        # Validate dimensions (Expected: 384 for all-MiniLM-L6-v2)
+        if embedding.shape != (1, 384):
+             raise ValueError(f"Query embedding dimension mismatch. Expected (1, 384), got {embedding.shape}")
+             
+        return embedding
