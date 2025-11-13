@@ -4,6 +4,7 @@ import logging
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
+import faiss
 import numpy as np
 
 # Configure logging
@@ -41,6 +42,7 @@ class RAGManager:
             is_separator_regex=False,
         )
         self._model = None  # Lazy loaded
+        self.index = faiss.IndexFlatL2(384)
         self.all_chunks = []
         
         logger.info(f"RAGManager initialized with chunk_size={chunk_size}, chunk_overlap={chunk_overlap}")
@@ -146,3 +148,74 @@ class RAGManager:
              raise ValueError(f"Query embedding dimension mismatch. Expected (1, 384), got {embedding.shape}")
              
         return embedding
+
+    def add_to_index(self, embeddings):
+        """
+        Adds vector embeddings to the FAISS index with dimension verification.
+        """
+        if len(embeddings) == 0:
+            return
+            
+        # Ensure embeddings is a float32 numpy array
+        if not isinstance(embeddings, np.ndarray):
+            embeddings = np.array(embeddings)
+        if embeddings.dtype != 'float32':
+            embeddings = embeddings.astype('float32')
+        
+        # Validate dimensions (Expected: 384 for all-MiniLM-L6-v2)
+        if embeddings.shape[1] != 384:
+            raise ValueError(f"Embedding dimension mismatch. Expected 384, got {embeddings.shape[1]}")
+        
+        logger.info(f"Adding {len(embeddings)} vectors to FAISS index")
+        self.index.add(embeddings)
+
+    def search(self, query_vector: np.ndarray, k: int = 3):
+        """
+        Retrieves the top-k most relevant text chunks from the FAISS index.
+        """
+        if not isinstance(query_vector, np.ndarray):
+            logger.error("Search called with non-numpy array input.")
+            raise TypeError(f"query_vector must be a numpy.ndarray, got {type(query_vector)}")
+            
+        if query_vector.shape != (1, 384):
+            logger.error(f"Search called with invalid vector shape: {query_vector.shape}")
+            raise ValueError(f"query_vector must have shape (1, 384), got {query_vector.shape}")
+
+        if query_vector.dtype != 'float32':
+            logger.info("Converting query_vector to float32 for FAISS compatibility.")
+            query_vector = query_vector.astype('float32')
+
+        if self.index.ntotal == 0:
+            logger.warning("Search called on an empty index.")
+            return []
+
+        # Ensure k doesn't exceed total indexed chunks
+        k = min(k, self.index.ntotal)
+        
+        logger.info(f"Performing similarity search for k={k}")
+        distances, indices = self.index.search(query_vector, k)
+        
+        results = []
+        for idx in indices[0]:
+            if idx != -1 and idx < len(self.all_chunks):
+                results.append(self.all_chunks[idx])
+            else:
+                logger.warning(f"FAISS returned invalid index: {idx}")
+                
+        return results
+
+    def format_context(self, context_chunks: list[str]) -> str:
+        """
+        Formats retrieved context chunks for system prompt injection.
+        """
+        if not context_chunks:
+            return ""
+            
+        header = "## Contextual Evidence (from professional documents):\n\n"
+        joined_chunks = "\n\n".join(context_chunks)
+        instructions = (
+            "\n\nUse the following evidence to provide factual, persona-aligned answers. "
+            "If the evidence contradicts your general knowledge, prioritize the evidence."
+        )
+        
+        return f"{header}{joined_chunks}{instructions}"
