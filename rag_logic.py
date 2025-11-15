@@ -1,6 +1,7 @@
 ﻿import os
 import sys
 import logging
+import pickle
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
@@ -219,3 +220,42 @@ class RAGManager:
         )
         
         return f"{header}{joined_chunks}{instructions}"
+
+    def save_index(self, folder_path="index"):
+        """
+        Persists FAISS index and metadata to disk.
+        """
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+            logger.info(f"Created directory: {folder_path}")
+
+        index_path = os.path.join(folder_path, "index.faiss")
+        metadata_path = os.path.join(folder_path, "metadata.pkl")
+
+        try:
+            faiss.write_index(self.index, index_path)
+            with open(metadata_path, "wb") as f:
+                pickle.dump(self.all_chunks, f)
+            logger.info(f"Saved FAISS index and metadata to '{folder_path}'")
+        except Exception as e:
+            logger.error(f"Failed to save index and/or metadata: {str(e)}")
+
+    def load_index(self, folder_path="index"):
+        """
+        Loads FAISS index and metadata from disk if they exist.
+        """
+        index_path = os.path.join(folder_path, "index.faiss")
+        metadata_path = os.path.join(folder_path, "metadata.pkl")
+
+        if os.path.exists(index_path) and os.path.exists(metadata_path):
+            try:
+                self.index = faiss.read_index(index_path)
+                with open(metadata_path, "rb") as f:
+                    self.all_chunks = pickle.load(f)
+                logger.info(f"Successfully loaded FAISS index and {len(self.all_chunks)} chunks from '{folder_path}'")
+            except Exception as e:
+                logger.warning(f"Failed to load existing index and/or metadata: {str(e)}. Starting fresh.")
+                self.index = faiss.IndexFlatL2(384)
+                self.all_chunks = []
+        else:
+            logger.info("No existing index and/or metadata found. Starting fresh.")
