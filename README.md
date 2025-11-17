@@ -39,3 +39,16 @@ A Retrieval-Augmented Generation (RAG) system designed to create an interactive 
 
 4. **Prepare Data**:
    Place your professional documents (PDF, TXT, MD) in the `me/` directory.
+
+## Usage
+
+### 1. Synchronize the Index
+Before running the app, ensure your documents are indexed:
+```bash
+python rag_logic.py --sync
+```
+
+### 2. Launch the Application
+Start the interactive persona:
+```bash
+python app.py

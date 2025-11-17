@@ -2,6 +2,7 @@
 import sys
 import logging
 import pickle
+import argparse
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
@@ -45,6 +46,9 @@ class RAGManager:
         self._model = None  # Lazy loaded
         self.index = faiss.IndexFlatL2(384)
         self.all_chunks = []
+        
+        # Load existing index on startup
+        self.load_index(self.index_folder)
         
         logger.info(f"RAGManager initialized with chunk_size={chunk_size}, chunk_overlap={chunk_overlap}")
 
@@ -259,3 +263,57 @@ class RAGManager:
                 self.all_chunks = []
         else:
             logger.info("No existing index and/or metadata found. Starting fresh.")
+
+    def sync_index(self, folder_path="me"):
+        """
+        Orchestrates full synchronization. Clears existing index to avoid duplicates 
+        and ensure 1:1 sync with the source folder.
+        """
+        logger.info(f"Starting manual index sync for folder: '{folder_path}'...")
+        files = self.list_source_files(folder_path)
+        logger.info(f"Found {len(files)} files to process.")
+        
+        new_chunks = []
+        for file in files:
+            text = self.extract_text(file)
+            if text.strip():
+                chunks = self.chunk_text(text)
+                new_chunks.extend(chunks)
+                logger.debug(f"Processed {file}: {len(chunks)} chunks")
+            else:
+                logger.warning(f"No text extracted from {file}")
+        
+        if new_chunks:
+            logger.info(f"Generating embeddings for {len(new_chunks)} chunks...")
+            new_embeddings = self.generate_embeddings(new_chunks)
+            
+            # Create fresh index and all_chunks   
+            self.index = faiss.IndexFlatL2(384)
+            self.all_chunks = []
+            
+            # Add the new embeddings to the index
+            self.add_to_index(new_embeddings)
+            
+            # Only update all_chunks after success
+            self.all_chunks = new_chunks
+            
+            # Save index and metadata
+            self.save_index(self.index_folder)
+            
+            logger.info(f"Sync complete! {len(files)} files processed, {len(self.all_chunks)} chunks indexed.")
+        else:
+            logger.warning("No chunks were generated. Sync aborted, index remains unchanged.")
+            
+        return self.all_chunks
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="RAG System Management CLI")
+    parser.add_argument("--sync", action="store_true", help="Manually sync the document index")
+    args = parser.parse_args()
+
+    if args.sync:
+        manager = RAGManager()
+        manager.sync_index()
+    else:
+        parser.print_help()
