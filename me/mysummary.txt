@@ -1,0 +1,4 @@
+Mohamed Abdelkrim Senouci is a Doctor Engineer in Computer Science, currently developing AI projects using Large Language Models (LLMs), both without frameworks and with frameworks such as OpenAI Agents SDK and CrewAI. 
+He earned his Master’s degree from UPMC and his PhD from UPEC, and has worked as a lecturer and researcher at UPEC as well as a Research and Development Engineer in industry.
+He holds several journal and conference publications, including Computer Networks, Ad Hoc Networks, Annales des Télécommunications, International Journal of Communication Systems, IEEE ICC, IEEE GLOBECOM, IEEE WCNC, IFIP/IEEE IM, and IEEE SaCoNet. 
+His work includes developing a real health-monitoring testbed for medical applications and a platform for indoor surveillance wireless sensor networks, with approaches validated through simulation and experiments.
