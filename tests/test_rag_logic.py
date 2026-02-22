@@ -188,8 +188,10 @@ def test_search_logic(tmp_path):
     results = manager.search(query_vector, k=2)
     
     assert len(results) == 2
-    assert "Chunk B" in results[0] # Should be first
-    assert "Chunk A" in results[1] or "Chunk C" in results[1]
+    # Chunks are now sorted by their original index (A=0, B=1, C=2)
+    # Even though B is closer to the query, A appears first in the returned list
+    assert "Chunk A" in results[0]
+    assert "Chunk B" in results[1]
 
 def test_search_empty_index(tmp_path):
     """Test that search handles empty index gracefully."""

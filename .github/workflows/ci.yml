@@ -28,3 +28,4 @@ jobs:
         pytest
       env:
         RAG_MOCK_MODEL: true
+        PYTHONPATH: .

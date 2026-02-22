@@ -29,11 +29,17 @@ for name in logging.root.manager.loggerDict:
         logging.getLogger(name).setLevel(logging.WARNING)
 
 
+# Path constants for portability
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_INDEX_FOLDER = os.getenv("RAG_INDEX_FOLDER", os.path.join(BASE_DIR, "index"))
+DEFAULT_SOURCE_FOLDER = os.getenv("RAG_SOURCE_FOLDER", os.path.join(BASE_DIR, "me"))
+
+
 class RAGManager:
     """
     Manages document ingestion, text extraction, chunking, and FAISS indexing for RAG.
     """
-    def __init__(self, index_folder="index", chunk_size=750, chunk_overlap=75):
+    def __init__(self, index_folder=DEFAULT_INDEX_FOLDER, chunk_size=750, chunk_overlap=75):
         self.index_folder = index_folder
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
@@ -72,7 +78,7 @@ class RAGManager:
                 self._model = SentenceTransformer('all-MiniLM-L6-v2')
         return self._model
 
-    def list_source_files(self, folder_path="me"):
+    def list_source_files(self, folder_path=DEFAULT_SOURCE_FOLDER):
         """
         Lists all valid professional documents in the target folder.
         Explicitly ignores hidden files and system metadata.
@@ -200,12 +206,10 @@ class RAGManager:
         logger.info(f"Performing similarity search for k={k}")
         distances, indices = self.index.search(query_vector, k)
         
-        results = []
-        for idx in indices[0]:
-            if idx != -1 and idx < len(self.all_chunks):
-                results.append(self.all_chunks[idx])
-            else:
-                logger.warning(f"FAISS returned invalid index: {idx}")
+        # Sort indices to preserve original document order for coherent LLM context
+        sorted_indices = sorted(indices[0])
+    
+        results = [self.all_chunks[idx] for idx in sorted_indices]
                 
         return results
 
@@ -225,10 +229,13 @@ class RAGManager:
         
         return f"{header}{joined_chunks}{instructions}"
 
-    def save_index(self, folder_path="index"):
+    def save_index(self, folder_path=None):
         """
         Persists FAISS index and metadata to disk.
         """
+        if folder_path is None:
+            folder_path = self.index_folder
+            
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
             logger.info(f"Created directory: {folder_path}")
@@ -244,10 +251,13 @@ class RAGManager:
         except Exception as e:
             logger.error(f"Failed to save index and/or metadata: {str(e)}")
 
-    def load_index(self, folder_path="index"):
+    def load_index(self, folder_path=None):
         """
         Loads FAISS index and metadata from disk if they exist.
         """
+        if folder_path is None:
+            folder_path = self.index_folder
+            
         index_path = os.path.join(folder_path, "index.faiss")
         metadata_path = os.path.join(folder_path, "metadata.pkl")
 
@@ -264,7 +274,7 @@ class RAGManager:
         else:
             logger.info("No existing index and/or metadata found. Starting fresh.")
 
-    def sync_index(self, folder_path="me"):
+    def sync_index(self, folder_path=DEFAULT_SOURCE_FOLDER):
         """
         Orchestrates full synchronization. Clears existing index to avoid duplicates 
         and ensure 1:1 sync with the source folder.
@@ -294,7 +304,7 @@ class RAGManager:
             # Add the new embeddings to the index
             self.add_to_index(new_embeddings)
             
-            # Only update all_chunks after success
+            # Assign chunks only after embeddings are indexed
             self.all_chunks = new_chunks
             
             # Save index and metadata

@@ -25,12 +25,18 @@ def test_cli_sync_invocation(tmp_path):
     # Resolve absolute path to the script being tested
     script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "rag_logic.py"))
     
-    # Run in the tmp_path as CWD so 'me' and 'index' are looked up there
+    # Run with environment overrides to point the script to temporary test folders
+    env = os.environ.copy()
+    env["RAG_INDEX_FOLDER"] = str(index_dir)
+    env["RAG_SOURCE_FOLDER"] = str(me_dir)
+    env["RAG_MOCK_MODEL"] = "true" # Ensure we use mock in subprocess
+    
     result = subprocess.run(
         [sys.executable, script_path, "--sync"],
         cwd=tmp_path,
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
     
     assert result.returncode == 0
@@ -38,6 +44,6 @@ def test_cli_sync_invocation(tmp_path):
     assert "Sync complete!" in result.stdout
     assert "1 files processed" in result.stdout
     
-    # Verify files were created in the index folder within tmp_path
-    assert (tmp_path / "index" / "index.faiss").exists()
-    assert (tmp_path / "index" / "metadata.pkl").exists()
+    # Verify files were created in the index folder
+    assert (index_dir / "index.faiss").exists()
+    assert (index_dir / "metadata.pkl").exists()
