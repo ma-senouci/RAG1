@@ -136,4 +136,28 @@ If the user is engaging in discussion, try to steer them towards getting in touc
 
 if __name__ == "__main__":
     me = Me()
-    gr.ChatInterface(me.chat).launch()
+
+    custom_css = """
+    .gradio-container { max-width: 800px !important; }
+    h1 { text-align: center; color: #1a5c4c; }
+    .description { text-align: center; }
+    """
+
+    interface = gr.ChatInterface(
+        fn=me.chat,
+        title=f"Chat with {me.name}",
+        description="Ask me about my experience, projects, or background. I'm anchored in my portfolio context.",
+        textbox=gr.Textbox(placeholder="Type your question here...", submit_btn=True),
+        examples=[
+            "Tell me about your experience with AI.",
+            "What projects have you worked on?",
+            "How can I contact you?"
+        ],
+    )
+    interface.launch(
+        theme=gr.themes.Soft(
+            primary_hue="teal",
+            font=gr.themes.GoogleFont("Inter")
+        ),
+        css=custom_css,
+    )
