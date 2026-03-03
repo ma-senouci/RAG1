@@ -24,10 +24,7 @@ logger.addHandler(console_handler)
 logger.propagate = False
 
 # Suppress noise from third-party libraries
-for name in logging.root.manager.loggerDict:
-    if not name.startswith(PROJECT_LOGGER_NAME):
-        logging.getLogger(name).setLevel(logging.WARNING)
-
+logging.root.setLevel(logging.WARNING)
 
 # Path constants for portability
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -62,7 +59,7 @@ class RAGManager:
     def model(self):
         """Lazy loader for SentenceTransformer to save memory/startup time."""
         if self._model is None:
-            if os.environ.get("RAG_MOCK_MODEL") == "true":
+            if os.getenv("RAG_MOCK_MODEL") == "true":
                 logger.info("RAG_MOCK_MODEL=true detected. Using dummy mock for SentenceTransformer.")
                 from unittest.mock import MagicMock
                 mock = MagicMock()
@@ -85,8 +82,8 @@ class RAGManager:
         """
         valid_extensions = (".pdf", ".txt", ".md")
         files = []
-        if not os.path.exists(folder_path):
-            logger.warning(f"Folder not found: {folder_path}")
+        if not os.path.isdir(folder_path):
+            logger.warning(f"Folder not found or is not a directory: {folder_path}")
             return files
             
         for file in os.listdir(folder_path):
@@ -213,22 +210,6 @@ class RAGManager:
                 
         return results
 
-    def format_context(self, context_chunks: list[str]) -> str:
-        """
-        Formats retrieved context chunks for system prompt injection.
-        """
-        if not context_chunks:
-            return ""
-            
-        header = "## Contextual Evidence (from professional documents):\n\n"
-        joined_chunks = "\n\n".join(context_chunks)
-        instructions = (
-            "\n\nUse the following evidence to provide factual, persona-aligned answers. "
-            "If the evidence contradicts your general knowledge, prioritize the evidence."
-        )
-        
-        return f"{header}{joined_chunks}{instructions}"
-
     def save_index(self, folder_path=None):
         """
         Persists FAISS index and metadata to disk.
@@ -236,7 +217,7 @@ class RAGManager:
         if folder_path is None:
             folder_path = self.index_folder
             
-        if not os.path.exists(folder_path):
+        if not os.path.isdir(folder_path):
             os.makedirs(folder_path)
             logger.info(f"Created directory: {folder_path}")
 

@@ -10,7 +10,6 @@ def mock_sentence_transformer():
         # Mock the encode method to return fixed-dimension random vectors
         mock_instance = mock_st.return_value
         def mock_encode(sentences, **kwargs):
-            import numpy as np
             count = len(sentences) if isinstance(sentences, list) else 1
             return np.random.rand(count, 384).astype('float32')
         mock_instance.encode.side_effect = mock_encode
@@ -67,6 +66,22 @@ def test_generate_embeddings(tmp_path):
     assert embeddings.shape == (2, 384)
     assert embeddings.dtype == 'float32'
 
+def test_get_query_embedding(tmp_path):
+    """Test that query embeddings are generated with correct shape and type."""
+    manager = RAGManager(index_folder=str(tmp_path / "empty"))
+    query = "What is RAG?"
+    embedding = manager.get_query_embedding(query)
+    
+    assert isinstance(embedding, np.ndarray)
+    assert embedding.dtype == 'float32'
+    assert embedding.shape == (1, 384)
+
+def test_get_query_embedding_empty_input(tmp_path):
+    """Test that empty query raises ValueError."""
+    manager = RAGManager(index_folder=str(tmp_path / "empty"))
+    with pytest.raises(ValueError, match="Query cannot be empty"):
+        manager.get_query_embedding("")
+
 def test_faiss_indexing(tmp_path):
     """Test that FAISS index correctly stores embeddings."""
     manager = RAGManager(index_folder=str(tmp_path / "empty"))
@@ -84,88 +99,8 @@ def test_faiss_indexing_dimension_mismatch(tmp_path):
     with pytest.raises(ValueError, match="Embedding dimension mismatch"):
         manager.add_to_index(wrong_dim_embeddings)
 
-def test_ingest_documents_orchestration(tmp_path):
-    """Test that ingest_documents orchestrates embedding and indexing."""
-    d = tmp_path / "test_ingest"
-    d.mkdir()
-    (d / "doc.txt").write_text("This is valid text for embedding.")
-    
-    manager = RAGManager(index_folder=str(tmp_path / "index"))
-    chunks = manager.sync_index(str(d))
-    
-    assert len(chunks) > 0
-    assert manager.index.ntotal == len(chunks)
-
-def test_save_load_index(tmp_path):
-    """Test that FAISS index and metadata are saved and reloaded correctly."""
-    index_dir = tmp_path / "index"
-    
-    # Instance 1: sync index and save
-    manager1 = RAGManager(index_folder=str(index_dir))
-    
-    # Setup test file
-    d = tmp_path / "data"
-    d.mkdir()
-    (d / "test.txt").write_text("Persistence test chunk.")
-    
-    manager1.sync_index(str(d))
-    
-    # Verify files exist
-    assert (index_dir / "index.faiss").exists()
-    assert (index_dir / "metadata.pkl").exists()
-    assert len(manager1.all_chunks) == manager1.index.ntotal == 1
-    
-    # Instance 2: Load index and metadata
-    manager2 = RAGManager(index_folder=str(index_dir))
-    # Note: load_index is called automatically in __init__
-    
-    assert len(manager2.all_chunks) == manager2.index.ntotal == 1
-    assert "Persistence test chunk." in manager2.all_chunks[0]
-
-def test_sequential_ingestion_rebuild(tmp_path):
-    """Test that multiple ingestions rebuilding the index instead of appending."""
-    index_dir = tmp_path / "index"
-    data_dir = tmp_path / "data"
-    data_dir.mkdir()
-    
-    manager = RAGManager(index_folder=str(index_dir))
-    
-    # First ingestion (1 file)
-    (data_dir / "doc1.txt").write_text("Chunk one.")
-    manager.sync_index(str(data_dir))
-    assert len(manager.all_chunks) == manager.index.ntotal == 1
-    
-    
-    # Second ingestion (2 files: doc1 and doc2)
-    (data_dir / "doc2.txt").write_text("Chunk two.")
-    manager.sync_index(str(data_dir))
-    
-    # Total should be 2 (rebuilt with doc1.txt and doc2.txt)
-    # NOT 3 (which would happen if it appended the second run result to the first)
-    assert len(manager.all_chunks) == manager.index.ntotal == 2
-    assert manager.all_chunks[0] == "Chunk one."
-    assert "Chunk two." in manager.all_chunks[1]
-
-
-def test_get_query_embedding(tmp_path):
-    """Test that query embeddings are generated with correct shape and type."""
-    manager = RAGManager(index_folder=str(tmp_path / "empty"))
-    query = "What is RAG?"
-    embedding = manager.get_query_embedding(query)
-    
-    assert isinstance(embedding, np.ndarray)
-    assert embedding.dtype == 'float32'
-    assert embedding.shape == (1, 384)
-    
-
-def test_get_query_embedding_empty_input(tmp_path):
-    """Test that empty query raises ValueError."""
-    manager = RAGManager(index_folder=str(tmp_path / "empty"))
-    with pytest.raises(ValueError, match="Query cannot be empty"):
-        manager.get_query_embedding("")
-
 def test_search_logic(tmp_path):
-    """Test that search returns the expected text chunks ranking by relevance."""
+    """Test that search returns chunks sorted by document order."""
     index_dir = tmp_path / "index"
     manager = RAGManager(index_folder=str(index_dir))
     
@@ -231,18 +166,63 @@ def test_search_invalid_input(tmp_path):
     results = manager.search(query_vector_64, k=1)
     assert results == [] # empty index case
 
-def test_format_context(tmp_path):
-    """Test that context is formatted correctly."""
-    manager = RAGManager(index_folder=str(tmp_path / "empty"))
-    chunks = ["Chunk 1", "Chunk 2"]
-    formatted = manager.format_context(chunks)
+def test_save_load_index(tmp_path):
+    """Test that FAISS index and metadata are saved and reloaded correctly."""
+    index_dir = tmp_path / "index"
     
-    assert "## Contextual Evidence (from professional documents):" in formatted
-    assert "Chunk 1" in formatted
-    assert "Chunk 2" in formatted
-    assert "prioritize the evidence" in formatted
+    # Instance 1: sync index and save
+    manager1 = RAGManager(index_folder=str(index_dir))
+    
+    # Setup test file
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "test.txt").write_text("Persistence test chunk.")
+    
+    manager1.sync_index(str(d))
+    
+    # Verify files exist
+    assert (index_dir / "index.faiss").exists()
+    assert (index_dir / "metadata.pkl").exists()
+    assert len(manager1.all_chunks) == manager1.index.ntotal == 1
+    
+    # Instance 2: Load index and metadata
+    manager2 = RAGManager(index_folder=str(index_dir))
+    # Note: load_index is called automatically in __init__
+    
+    assert len(manager2.all_chunks) == manager2.index.ntotal == 1
+    assert "Persistence test chunk." in manager2.all_chunks[0]
 
-def test_format_context_empty(tmp_path):
-    """Test that empty context returns empty string."""
-    manager = RAGManager(index_folder=str(tmp_path / "empty"))
-    assert manager.format_context([]) == ""
+def test_ingest_documents_orchestration(tmp_path):
+    """Test that sync_index orchestrates embedding and indexing."""
+    d = tmp_path / "test_ingest"
+    d.mkdir()
+    (d / "doc.txt").write_text("This is valid text for embedding.")
+    
+    manager = RAGManager(index_folder=str(tmp_path / "index"))
+    chunks = manager.sync_index(str(d))
+    
+    assert len(chunks) > 0
+    assert manager.index.ntotal == len(chunks)
+
+def test_sequential_ingestion_rebuild(tmp_path):
+    """Test that multiple ingestions rebuild the index instead of appending."""
+    index_dir = tmp_path / "index"
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    
+    manager = RAGManager(index_folder=str(index_dir))
+    
+    # First ingestion (1 file)
+    (data_dir / "doc1.txt").write_text("Chunk one.")
+    manager.sync_index(str(data_dir))
+    assert len(manager.all_chunks) == manager.index.ntotal == 1
+    
+    # Second ingestion (2 files: doc1 and doc2)
+    (data_dir / "doc2.txt").write_text("Chunk two.")
+    manager.sync_index(str(data_dir))
+    
+    # Total should be 2 (rebuilt with doc1.txt and doc2.txt)
+    # NOT 3 (which would happen if it appended the second run result to the first)
+    assert len(manager.all_chunks) == manager.index.ntotal == 2
+    assert manager.all_chunks[0] == "Chunk one."
+    assert "Chunk two." in manager.all_chunks[1]

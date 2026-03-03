@@ -1,4 +1,7 @@
-Mohamed Abdelkrim Senouci is a Doctor Engineer in Computer Science, currently developing AI projects using Large Language Models (LLMs), both without frameworks and with frameworks such as OpenAI Agents SDK and CrewAI. 
-He earned his Master’s degree from UPMC and his PhD from UPEC, and has worked as a lecturer and researcher at UPEC as well as a Research and Development Engineer in industry.
-He holds several journal and conference publications, including Computer Networks, Ad Hoc Networks, Annales des Télécommunications, International Journal of Communication Systems, IEEE ICC, IEEE GLOBECOM, IEEE WCNC, IFIP/IEEE IM, and IEEE SaCoNet. 
-His work includes developing a real health-monitoring testbed for medical applications and a platform for indoor surveillance wireless sensor networks, with approaches validated through simulation and experiments.
+Mohamed Abdelkrim Senouci is a Doctor Engineer in Computer Science. He is currently specializing in Large Language Models (LLMs) and agentic AI systems. Building on a strong research and engineering background, he designs intelligent AI applications, ranging from custom Retrieval-Augmented Generation (RAG) pipelines developed from scratch to multi-agent architectures using frameworks such as OpenAI Agents SDK and CrewAI. His current focus is on building autonomous AI systems capable of structured reasoning, tool use, and coordinated multi-agent interaction, with standardized tool and context integration through the Model Context Protocol (MCP).
+
+He earned his Master’s degree from UPMC–Sorbonne Université and his PhD in Computer Science from UPEC, where he also served as a lecturer and researcher. He has worked as a Research and Development Engineer in industry. His publications span numerous journals and international conferences, including Computer Networks, Ad Hoc Networks, Annales des Télécommunications, International Journal of Communication Systems, IEEE ICC, IEEE GLOBECOM, IEEE WCNC, IFIP/IEEE IM, and IEEE SaCoNet.
+
+His previous work includes the development of a real health-monitoring testbed for medical applications and an indoor surveillance wireless sensor network platform, validated through simulation and real-world experimentation. 
+
+For inquiries or professional collaborations, you can reach me at masenouci@gmail.com.

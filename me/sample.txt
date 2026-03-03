@@ -1,0 +1,4 @@
+This is a sample text file.
+It contains simple sentences to test the TextLoader with autodetect_encoding=True.
+The RAG2 system should be able to read this and extract the content accurately.
+Source: Professional Portfolio.
