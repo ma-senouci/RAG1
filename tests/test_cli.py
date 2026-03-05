@@ -18,9 +18,7 @@ def test_cli_help():
     assert "--sync" in result.stdout
 
 def test_cli_sync_invocation(tmp_path):
-    """Test that --sync triggers the sync logic and creates index files."""
-    # Setup isolated test environment using absolute paths via env overrides
-    
+    """Test that --sync triggers the sync logic and creates index files.""" 
     # Setup test environment
     me_dir = tmp_path / "me"
     me_dir.mkdir()
