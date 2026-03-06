@@ -1,9 +1,9 @@
-﻿pypdf==6.7.5
+﻿pypdf==6.9.1
 langchain-text-splitters==1.1.1
 faiss-cpu==1.13.2
-sentence-transformers==5.2.3
-openai==2.24.0
-gradio==6.8.0
+sentence-transformers==5.3.0
+openai==2.29.0
+gradio==6.9.0
 python-dotenv==1.2.2
 pytest==9.0.2
 requests==2.32.5
